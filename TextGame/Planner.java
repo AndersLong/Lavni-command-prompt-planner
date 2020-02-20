@@ -51,7 +51,7 @@ class Planner{
 	}
 
 	/**
-		The loop function embodies the entirety of the program
+		The loop function embodies the entirety of the programm
 		by "re-offering" choices until the exit choice is chosen
 	*/
 
@@ -212,25 +212,25 @@ class Planner{
 	public void removeFromPlanner(Scanner scan){
 		printPlanner();
 		ArrayList<String> strs=getPlanner();
-		String inp=scan.nextLine();
-		while(inp.isBlank()){
-			inp=scan.nextLine();
-		}
-		if(strs.contains(inp)){
-			strs.remove(strs.indexOf(inp));
-			try(PrintWriter pw=new PrintWriter(new File("saveFile.txt"))){
-				for(String str:strs){
-					pw.write(str+"\n");
-				}
-			}catch(IOException e){
-				e.printStackTrace();
-			}
-			printDiv(String.format("good job on completing %s!",inp));
+		int choice=getChoice(scan,"have you done any of these?",getStrArrFromList(strs));
+		if(choice==-1){
+			System.out.printf("sorry %d isn't on the list!\n",choice);
+			return;
 		}else{
-			
-			printDiv(String.format("sorry! %s isn't on the list, but good job doing it!",inp));
+			System.out.printf("good job on completing %s!\n",strs.get(choice));
+			strs.remove(choice);
+			printToPlanner(strs);
 		}
+	}
 
+	public void printToPlanner(ArrayList<String> strs){
+		try(PrintWriter pw=new PrintWriter("saveFile.txt")){
+			for(String str:strs){
+				pw.write(str+"\n");
+			}
+		}catch(IOException e){
+			e.printStackTrace();
+		}
 	}
 	/*
 	   below are all the subclasses used in our simulation
