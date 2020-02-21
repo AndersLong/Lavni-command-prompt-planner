@@ -9,9 +9,9 @@
 import java.io.*;
 import java.util.*;
 
-class Planner{
+class Planner implements Runnable{
 	String name  = "Lavni";
-	double version = 1.1;
+	double version = 1.2;
 	Scanner scan=new Scanner(System.in);
 	private String[] menuChoices={"view planner",
 				      "add to planner",
@@ -19,6 +19,8 @@ class Planner{
 				      "organize planner",
 				      "manuel",
 				      "quit?"};
+
+	Thread thread;
 
 	public static void main(String[] args){
 		new Planner();
@@ -33,9 +35,15 @@ class Planner{
 
 	public Planner(){
 		printDiv(String.format("Welcome to %s version %.1f!", name, version));
-		loop();
-		scan.close();
+		thread=new Thread(this);
+		thread.start();
 	}
+
+	/*
+		gets a string array from a file with a given filepath. This function
+		utilizes another function getStrArrFromList with converts a dynamic
+		ArrayList to a string array
+	*/
 
 	public String[] getArrayFromFile(String path){
 		ArrayList<String> strs=new ArrayList<>();
@@ -55,35 +63,38 @@ class Planner{
 		by "re-offering" choices until the exit choice is chosen
 	*/
 
-	public void loop(){
+	public void run(){
 		int choice=getChoice(scan,"What would you like to do!",menuChoices);
 		while(choice!=5){
 			switch(choice){
 				case -1:
-					printDiv("sorry! that's not valid input you dork!");
+					proceed(scan);
 					break;
 				case 0:
+					printNewPage();
 					printPlanner();
+					proceed(scan);
 					break;
 				case 1:
+					printNewPage();
 					addToPlanner(scan);
 					break;
 				case 2:
+					printNewPage();
 					removeFromPlanner(scan);
 					break;
 				case 3:
+					printNewPage();
 					orgPlan(scan);
 					break;
 				case 4:
-					displayMan();
+					printNewPage();
+					displayMan(scan);
 					break;
 			}
 			choice=getChoice(scan,"what would you like to do!",menuChoices);
-			if(choice==-1){
-				printDiv("sorry, not valid! exiting now");
-				break;
-			}
 		}
+		scan.close();
 	}
 
 	/**
@@ -101,6 +112,7 @@ class Planner{
 			try{
 				result=scan.nextInt();
 			}catch(InputMismatchException ime){
+				String catchAndRelease=scan.nextLine();
 				return -1;
 			}
 		}
@@ -122,6 +134,11 @@ class Planner{
 	}
 
 
+	/*
+		this function opens up the saveFile, puts all the lines
+		into an ArrayList of Strings, and returns the arrayList
+	*/
+
 	public ArrayList<String> getPlanner(){
 		ArrayList<String> checkBoxes=new ArrayList<>();
 		try(Scanner s=new Scanner(new File("saveFile.txt"))){
@@ -135,13 +152,30 @@ class Planner{
 		}
 		return null;
 	}
+
+	/*
+		This function uses "getPlanner()" to get an ArrayList of strings
+		which it displays on the screen
+	*/
+
 	public void printPlanner(){
 		ArrayList<String> strs=getPlanner();
+		if(strs.isEmpty()){
+			printDiv("WOW! nothing to do! have fun on vacation!");
+			return;
+		}
 		for(String str:strs){
 			System.out.printf("%s\n",str);
 		}
 		return;
 	}
+
+	/*
+		takes in a scanner object and uses "getPlanner()" to get an
+		ArrayList<> of strings. From there the user can input
+		another string, which is converted to an array and written to
+		the file
+	*/
 
 	public void addToPlanner(Scanner scan){
 		printPlanner();
@@ -153,14 +187,40 @@ class Planner{
 		if(!inp.isBlank()){
 			strs.add(inp);
 		}
-		try(PrintWriter pw=new PrintWriter(new File("saveFile.txt"))){
-			for(String str:strs){
-				pw.write(str+"\n");
-			}
-		}catch(IOException e){
-			e.printStackTrace();
-		}
+		printToPlanner(strs);
 	}
+	/*
+		A "jack-of-all-trades" function that basically catches the
+		program when something is done incorrectly. It requires that
+		the user enters any number to exit the function
+		Uses:
+		-pause();
+		-proceed();
+		-printNewPage();
+	*/
+
+	public void proceed(Scanner scan){
+		pause(1000);
+		printDiv("press any number to proceed");
+		try{
+			int catchAndRelease=scan.nextInt();
+		}catch(InputMismatchException ime){
+			String catchAndRelease=scan.nextLine();
+			proceed(scan);
+		}
+		printNewPage();
+		return;
+	}
+
+	/*
+		This function allows the user to move one checkbox up to the
+		place of another. It uses:
+		-getPlanner();
+		-printDiv();
+		-printToPlanner();
+		-getChoice();
+	*/
+
 	public void orgPlan(Scanner scan){
 		ArrayList<String> strs=getPlanner();
 		int choice=getChoice(scan,"Which checkbox would you like to move",getStrArrFromList(strs));
@@ -176,14 +236,13 @@ class Planner{
 			return;
 		}
 		strs.add(choice,op);
-		try(PrintWriter pw=new PrintWriter(new File("saveFile.txt"))){
-			for(String str:strs){
-				pw.write(str+"\n");
-			}
-		}catch(IOException e){
-			e.printStackTrace();
-		}
+		printToPlanner(strs);
 	}
+
+	/*
+		converts a given ArrayList of Strings to a
+		String[]
+	*/
 
 	public String[] getStrArrFromList(ArrayList<String> strs){
 		Object[] objs=strs.toArray();
@@ -194,7 +253,13 @@ class Planner{
 		return arr;
 	}
 
-	public void displayMan(){
+	/*
+		displays the manual file
+		uses:
+		-proceed();
+	*/
+
+	public void displayMan(Scanner scan){
 		try(Scanner s=new Scanner(new File("man.txt"))){
 			while(s.hasNextLine()){
 				System.out.println(s.nextLine());
@@ -202,26 +267,54 @@ class Planner{
 		}catch(IOException e){
 			e.printStackTrace();
 		}
-		String[] ops={"y","n"};
-		int choice=-2;
-		while(choice!=0 && !isValid(ops.length,choice)){
-			choice=getChoice(scan,"would you like to exit?",ops);
-		}
+		proceed(scan);
 	}
 
+	/*
+		Allows the user to remove a checkbox from the planner it uses:
+		-getPlanner();
+		-printDiv();
+		-getChoice();
+		-printToPlanner();
+		-pause();
+	*/
+
 	public void removeFromPlanner(Scanner scan){
-		printPlanner();
 		ArrayList<String> strs=getPlanner();
+		if(strs.isEmpty()){
+			printDiv("NOTHING TO DO!");
+			return;
+		}
 		int choice=getChoice(scan,"have you done any of these?",getStrArrFromList(strs));
 		if(choice==-1){
-			System.out.printf("sorry %d isn't on the list!\n",choice);
+			printDiv("Sorry, that wasn't a valid choice!");
 			return;
 		}else{
-			System.out.printf("good job on completing %s!\n",strs.get(choice));
+			printDiv(String.format("Good job completing %s!", strs.get(choice)));
 			strs.remove(choice);
 			printToPlanner(strs);
 		}
+		pause(20);
+		proceed(scan);
+
 	}
+
+	/*
+		printNewPage basically resets the screen by printing what
+		Computer Scientists affectionately call "a heck ton" of
+		newline characters
+	*/
+
+	public void printNewPage(){
+		for(int i=0;i<45;i++){
+			System.out.printf("\n");
+		}
+	}
+
+	/*
+		given an arrayList of Strings, this function prints
+		to the planner saveFile
+	*/
 
 	public void printToPlanner(ArrayList<String> strs){
 		try(PrintWriter pw=new PrintWriter("saveFile.txt")){
@@ -233,8 +326,7 @@ class Planner{
 		}
 	}
 	/*
-	   below are all the subclasses used in our simulation
-
+		prints a given string with pretty, dashed formatting
 	*/
 
 	public void printDiv(String message){
@@ -248,6 +340,19 @@ class Planner{
 			System.out.printf("-");
 		}
 		System.out.println();
+	}
+
+	/*
+		pause uses the thread.sleep method to insert pauses
+		for aesthetic appeal
+	*/
+
+	public void pause(double time){
+		try{
+			thread.sleep((long)time);
+		}catch(InterruptedException e){
+			e.printStackTrace();
+		}
 	}
 
 
